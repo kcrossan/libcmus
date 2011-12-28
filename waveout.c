@@ -25,8 +25,10 @@
 #include "debug.h"
 
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <mmsystem.h>
+#include <stdio.h>
 
 static HWAVEOUT wave_out;
 static sample_format_t waveout_sf;

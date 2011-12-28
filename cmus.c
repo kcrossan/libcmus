@@ -16,7 +16,7 @@
 #include "xstrjoin.h"
 #include "debug.h"
 #include "load_dir.h"
-#include "ui_curses.h"
+#include "bridge.h"
 #include "cache.h"
 #include "gbuf.h"
 

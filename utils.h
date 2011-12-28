@@ -33,6 +33,12 @@
 #include <byteswap.h>
 #endif
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #define N_ELEMENTS(array) (sizeof(array) / sizeof((array)[0]))
 
 #define getentry(ptr, offset, type) (*((type *) ((char *) (ptr) + (offset))))
@@ -105,23 +111,17 @@ static inline time_t file_get_mtime(const char *filename)
 	return s.st_mtime;
 }
 
-static inline void ns_sleep(int ns)
+static inline void ms_sleep(int ms)
 {
+#ifdef _WIN32
+	Sleep(ms);
+#else
 	struct timespec req;
 
 	req.tv_sec = 0;
-	req.tv_nsec = ns;
+	req.tv_nsec = ms * 1e6 * 1e3;
 	nanosleep(&req, NULL);
-}
-
-static inline void us_sleep(int us)
-{
-	ns_sleep(us * 1e3);
-}
-
-static inline void ms_sleep(int ms)
-{
-	ns_sleep(ms * 1e6);
+#endif
 }
 
 static inline int is_url(const char *name)

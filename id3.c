@@ -7,7 +7,7 @@
 #include "xmalloc.h"
 #include "convert.h"
 #include "uchar.h"
-#include "options.h"
+#include "bridge.h"
 #include "debug.h"
 #include "utils.h"
 #include "file.h"

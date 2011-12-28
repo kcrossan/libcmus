@@ -11,17 +11,17 @@ _ver3	= v2.4.3
 
 VERSION	= $(or $(_ver0),$(_ver1),$(_ver2),$(_ver3))
 
-all: main plugins man
+all: main plugins #man #disabled for now
 
 include config.mk
 include scripts/lib.mk
 
 CFLAGS += -D_FILE_OFFSET_BITS=64
 
-CMUS_LIBS = $(PTHREAD_LIBS) $(NCURSES_LIBS) $(ICONV_LIBS) $(DL_LIBS) -lm $(COMPAT_LIBS)
+CMUS_LIBS = $(PTHREAD_LIBS) $(ICONV_LIBS) $(DL_LIBS) -lm $(COMPAT_LIBS)
 
-input.o main.o ui_curses.o pulse.lo: .version
-input.o main.o ui_curses.o pulse.lo: CFLAGS += -DVERSION=\"$(VERSION)\"
+input.o main.o pulse.lo: .version
+input.o main.o pulse.lo: CFLAGS += -DVERSION=\"$(VERSION)\"
 main.o server.o: CFLAGS += -DDEFAULT_PORT=3000
 
 .version: Makefile
@@ -30,35 +30,21 @@ main.o server.o: CFLAGS += -DDEFAULT_PORT=3000
 
 # programs {{{
 cmus-y := \
-	ape.o browser.o buffer.o cache.o cmdline.o cmus.o command_mode.o comment.o \
-	convert.lo debug.o editable.o expr.o filters.o \
-	format_print.o gbuf.o glob.o help.o history.o http.o id3.o input.o job.o \
-	keys.o keyval.o lib.o load_dir.o locking.o mergesort.o misc.o options.o \
-	output.o pcm.o pl.o play_queue.o player.o \
-	rbtree.o read_wrapper.o server.o search.o \
-	search_mode.o spawn.o tabexp.o tabexp_file.o \
-	track.o track_info.o tree.o u_collate.o uchar.o ui_curses.o \
-	window.o worker.o xstrjoin.o
+	player.o debug.o locking.o buffer.o track_info.o \
+	input.o output.o xmalloc.o keyval.o comment.o http.o \
+	u_collate.o misc.o uchar.o mergesort.o pcm.o \
+	gbuf.o file.o prog.o convert.o xstrjoin.o id3.o \
+	read_wrapper.o ape.o bridge.o
 
-$(cmus-y): CFLAGS += $(PTHREAD_CFLAGS) $(NCURSES_CFLAGS) $(ICONV_CFLAGS) $(DL_CFLAGS)
+$(cmus-y): CFLAGS += $(PTHREAD_CFLAGS) $(ICONV_CFLAGS) $(DL_CFLAGS)
 
-cmus: $(cmus-y) file.o path.o prog.o xmalloc.o
-	$(call cmd,ld,$(CMUS_LIBS))
+ifeq (y,$(STANDALONE_PLUGINS))
+	PLUGIN_LIBS = $(PTHREAD_LIBS) $(ICONV_LIBS)
+	libcmus-y := file.o path.o prog.o xmalloc.o debug.o keyval.o comment.o uchar.o buffer.o gbuf.o bridge.o convert.o locking.o read_wrapper.o id3.o ape.o misc.o xstrjoin.o
+endif
 
-cmus-remote: main.o file.o path.o prog.o xmalloc.o
-	$(call cmd,ld,$(COMPAT_LIBS))
-
-# cygwin compat
-DLLTOOL=dlltool
-
-libcmus-$(CONFIG_CYGWIN) := libcmus.a
-
-libcmus.a: $(cmus-y) file.o path.o prog.o xmalloc.o
-	$(LD) -shared -o cmus.exe -Wl,--out-implib=libcmus.a -Wl,--base-file,cmus.base \
-		-Wl,--export-all-symbols -Wl,--no-whole-archive $^ $(CMUS_LIBS)
-	$(DLLTOOL) --output-def cmus.def --dllname cmus.exe --export-all-symbols $^
-	$(DLLTOOL) --base-file cmus.base --dllname cmus.exe --input-def cmus.def --output-exp cmus.exp
-	$(LD) -o cmus.exe -Wl,cmus.exp $^ $(CMUS_LIBS)
+cmus$(LIB_EXT): $(cmus-y)
+	$(call cmd,ld_dl,$(CMUS_LIBS))
 
 # }}}
 
@@ -66,26 +52,26 @@ libcmus.a: $(cmus-y) file.o path.o prog.o xmalloc.o
 flac-objs		:= flac.lo
 mad-objs		:= mad.lo nomad.lo
 mikmod-objs		:= mikmod.lo
-modplug-objs		:= modplug.lo
+modplug-objs	:= modplug.lo
 mpc-objs		:= mpc.lo
 vorbis-objs		:= vorbis.lo
-wavpack-objs		:= wavpack.lo
+wavpack-objs	:= wavpack.lo
 wav-objs		:= wav.lo
 mp4-objs		:= mp4.lo
 aac-objs		:= aac.lo
 ffmpeg-objs		:= ffmpeg.lo
 
-ip-$(CONFIG_FLAC)	+= flac.so
-ip-$(CONFIG_MAD)	+= mad.so
-ip-$(CONFIG_MIKMOD)	+= mikmod.so
-ip-$(CONFIG_MODPLUG)	+= modplug.so
-ip-$(CONFIG_MPC)	+= mpc.so
-ip-$(CONFIG_VORBIS)	+= vorbis.so
-ip-$(CONFIG_WAVPACK)	+= wavpack.so
-ip-$(CONFIG_WAV)	+= wav.so
-ip-$(CONFIG_MP4)	+= mp4.so
-ip-$(CONFIG_AAC)	+= aac.so
-ip-$(CONFIG_FFMPEG)	+= ffmpeg.so
+ip-$(CONFIG_FLAC)		+= flac$(LIB_EXT)
+ip-$(CONFIG_MAD)		+= mad$(LIB_EXT)
+ip-$(CONFIG_MIKMOD)		+= mikmod$(LIB_EXT)
+ip-$(CONFIG_MODPLUG)	+= modplug$(LIB_EXT)
+ip-$(CONFIG_MPC)		+= mpc$(LIB_EXT)
+ip-$(CONFIG_VORBIS)		+= vorbis$(LIB_EXT)
+ip-$(CONFIG_WAVPACK)	+= wavpack$(LIB_EXT)
+ip-$(CONFIG_WAV)		+= wav$(LIB_EXT)
+ip-$(CONFIG_MP4)		+= mp4$(LIB_EXT)
+ip-$(CONFIG_AAC)		+= aac$(LIB_EXT)
+ip-$(CONFIG_FFMPEG)		+= ffmpeg$(LIB_EXT)
 
 $(flac-objs):		CFLAGS += $(FLAC_CFLAGS)
 $(mad-objs):		CFLAGS += $(MAD_CFLAGS)
@@ -98,38 +84,38 @@ $(mp4-objs):		CFLAGS += $(MP4_CFLAGS)
 $(aac-objs):		CFLAGS += $(AAC_CFLAGS)
 $(ffmpeg-objs):		CFLAGS += $(FFMPEG_CFLAGS)
 
-flac.so: $(flac-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(FLAC_LIBS))
+flac$(LIB_EXT): $(flac-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(FLAC_LIBS) $(PLUGIN_LIBS))
 
-mad.so: $(mad-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(MAD_LIBS) $(ICONV_LIBS))
+mad$(LIB_EXT): $(mad-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(MAD_LIBS) $(PLUGIN_LIBS))
 
-mikmod.so: $(mikmod-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(MIKMOD_LIBS))
+mikmod$(LIB_EXT): $(mikmod-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(MIKMOD_LIBS) $(PLUGIN_LIBS))
 
-modplug.so: $(modplug-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(MODPLUG_LIBS))
+modplug$(LIB_EXT): $(modplug-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(MODPLUG_LIBS) $(PLUGIN_LIBS))
 
-mpc.so: $(mpc-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(MPC_LIBS))
+mpc$(LIB_EXT): $(mpc-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(MPC_LIBS) $(PLUGIN_LIBS))
 
-vorbis.so: $(vorbis-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(VORBIS_LIBS))
+vorbis$(LIB_EXT): $(vorbis-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(VORBIS_LIBS) $(PLUGIN_LIBS))
 
-wavpack.so: $(wavpack-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(WAVPACK_LIBS))
+wavpack$(LIB_EXT): $(wavpack-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(WAVPACK_LIBS) $(PLUGIN_LIBS))
 
-wav.so: $(wav-objs) $(libcmus-y)
-	$(call cmd,ld_dl,)
+wav$(LIB_EXT): $(wav-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(PLUGIN_LIBS))
 
-mp4.so: $(mp4-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(MP4_LIBS))
+mp4$(LIB_EXT): $(mp4-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(MP4_LIBS) $(PLUGIN_LIBS))
 
-aac.so: $(aac-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(AAC_LIBS))
+aac$(LIB_EXT): $(aac-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(AAC_LIBS) $(PLUGIN_LIBS))
 
-ffmpeg.so: $(ffmpeg-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(FFMPEG_LIBS))
+ffmpeg$(LIB_EXT): $(ffmpeg-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(FFMPEG_LIBS) $(PLUGIN_LIBS))
 
 # }}}
 
@@ -140,17 +126,17 @@ arts-objs		:= arts.lo
 oss-objs		:= oss.lo mixer_oss.lo
 sun-objs		:= sun.lo mixer_sun.lo
 ao-objs			:= ao.lo
-waveout-objs		:= waveout.lo
-roar-objs               := roar.lo
+waveout-objs	:= waveout.lo
+roar-objs		:= roar.lo
 
-op-$(CONFIG_PULSE)	+= pulse.so
-op-$(CONFIG_ALSA)	+= alsa.so
-op-$(CONFIG_ARTS)	+= arts.so
-op-$(CONFIG_OSS)	+= oss.so
-op-$(CONFIG_SUN)	+= sun.so
-op-$(CONFIG_AO)		+= ao.so
-op-$(CONFIG_WAVEOUT)	+= waveout.so
-op-$(CONFIG_ROAR)       += roar.so
+op-$(CONFIG_PULSE)		+= pulse$(LIB_EXT)
+op-$(CONFIG_ALSA)		+= alsa$(LIB_EXT)
+op-$(CONFIG_ARTS)		+= arts$(LIB_EXT)
+op-$(CONFIG_OSS)		+= oss$(LIB_EXT)
+op-$(CONFIG_SUN)		+= sun$(LIB_EXT)
+op-$(CONFIG_AO)			+= ao$(LIB_EXT)
+op-$(CONFIG_WAVEOUT)	+= waveout$(LIB_EXT)
+op-$(CONFIG_ROAR)		+= roar$(LIB_EXT)
 
 $(pulse-objs): CFLAGS	+= $(PULSE_CFLAGS)
 $(alsa-objs): CFLAGS	+= $(ALSA_CFLAGS)
@@ -161,29 +147,29 @@ $(ao-objs):   CFLAGS	+= $(AO_CFLAGS)
 $(waveout-objs): CFLAGS += $(WAVEOUT_CFLAGS)
 $(roar-objs): CFLAGS	+= $(ROAR_CFLAGS)
 
-pulse.so: $(pulse-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(PULSE_LIBS))
+pulse$(LIB_EXT): $(pulse-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(PULSE_LIBS) $(PLUGIN_LIBS))
 
-alsa.so: $(alsa-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(ALSA_LIBS))
+alsa$(LIB_EXT): $(alsa-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(ALSA_LIBS) $(PLUGIN_LIBS))
 
-arts.so: $(arts-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(ARTS_LIBS))
+arts$(LIB_EXT): $(arts-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(ARTS_LIBS) $(PLUGIN_LIBS))
 
-oss.so: $(oss-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(OSS_LIBS))
+oss$(LIB_EXT): $(oss-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(OSS_LIBS) $(PLUGIN_LIBS))
 
-sun.so: $(sun-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(SUN_LIBS))
+sun$(LIB_EXT): $(sun-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(SUN_LIBS) $(PLUGIN_LIBS))
 
-ao.so: $(ao-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(AO_LIBS))
+ao$(LIB_EXT): $(ao-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(AO_LIBS) $(PLUGIN_LIBS))
 
-waveout.so: $(waveout-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(WAVEOUT_LIBS))
+waveout$(LIB_EXT): $(waveout-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(WAVEOUT_LIBS) $(PLUGIN_LIBS))
 
-roar.so: $(roar-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(ROAR_LIBS))
+roar$(LIB_EXT): $(roar-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(ROAR_LIBS) $(PLUGIN_LIBS))
 # }}}
 
 # man {{{
@@ -211,15 +197,15 @@ quiet_cmd_ttman = MAN    $@
 
 data		= $(wildcard data/*)
 
-clean		+= *.o *.lo *.so cmus libcmus.a cmus.def cmus.base cmus.exp cmus-remote Doc/*.o Doc/ttman Doc/*.1 Doc/*.7
+clean		+= *.o *.lo *$(LIB_EXT) cmus.def cmus.base cmus.exp cmus-remote Doc/*.o Doc/ttman Doc/*.1 Doc/*.7
 distclean	+= .version config.mk config/*.h tags
 
-main: cmus cmus-remote
+main: cmus$(LIB_EXT)
 plugins: $(ip-y) $(op-y)
 man: $(man1) $(man7)
 
 install-main: main
-	$(INSTALL) -m755 $(bindir) cmus cmus-remote
+	$(INSTALL) -m755 $(bindir) cmus$(LIB_EXT)
 
 install-plugins: plugins
 	$(INSTALL) -m755 $(libdir)/cmus/ip $(ip-y)

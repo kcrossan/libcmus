@@ -25,9 +25,9 @@
 #include "xmalloc.h"
 #include "list.h"
 #include "debug.h"
-#include "ui_curses.h"
-#include "options.h"
+#include "bridge.h"
 #include "config/libdir.h"
+#include "config/plugin.h"
 
 #include <string.h>
 #include <strings.h>
@@ -35,7 +35,15 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <dirent.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#define dlsym GetProcAddress
+#define dlclose FreeLibrary
+#else
 #include <dlfcn.h>
+#endif
 
 struct output_plugin {
 	struct list_head node;
@@ -99,16 +107,24 @@ void op_load_plugins(void)
 		ext = strrchr(d->d_name, '.');
 		if (ext == NULL)
 			continue;
-		if (strcmp(ext, ".so"))
+		if (strcmp(ext, LIB_EXT))
 			continue;
 
 		snprintf(filename, sizeof(filename), "%s/%s", plugin_dir, d->d_name);
 
+#ifdef _WIN32
+		so = LoadLibrary(filename);
+		if (so == NULL) {
+			d_print("%s: %d\n", filename, GetLastError());
+			continue;
+		}
+#else
 		so = dlopen(filename, RTLD_NOW);
 		if (so == NULL) {
 			d_print("%s: %s\n", filename, dlerror());
 			continue;
 		}
+#endif
 
 		plug = xnew(struct output_plugin, 1);
 

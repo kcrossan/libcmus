@@ -27,10 +27,25 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#define ECONNREFUSED WSAECONNREFUSED
+#define EADDRINUSE WSAEADDRINUSE
+#define ENOTSOCK WSAENOTSOCK
+#define EISCONN WSAEISCONN
+#define ETIMEDOUT WSAETIMEDOUT
+#define ENETUNREACH WSAENETUNREACH
+#define EINPROGRESS WSAEINPROGRESS
+#define EALREADY WSAEALREADY
+#define EAFNOSUPPORT WSAEAFNOSUPPORT
+#define EOPNOTSUPP WSAEOPNOTSUPP
+#define EWOULDBLOCK WSAEWOULDBLOCK
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#endif
 #include <string.h>
 #include <errno.h>
 
@@ -164,9 +179,14 @@ int http_open(struct http_get *hg, int timeout_ms)
 	if (hg->fd == -1)
 		return -1;
 
+#ifdef _WIN32
+	if (!ioctlsocket(hg->fd, FIONBIO, &hg->fd))
+		goto close_exit;
+#else
 	flags = fcntl(hg->fd, F_GETFL);
 	if (fcntl(hg->fd, F_SETFL, O_NONBLOCK) == -1)
 		goto close_exit;
+#endif
 
 	tv.tv_sec = timeout_ms / 1000;
 	tv.tv_usec = (timeout_ms % 1000) * 1000;
@@ -205,12 +225,18 @@ int http_open(struct http_get *hg, int timeout_ms)
 	}
 
 	/* restore old flags */
+#ifndef _WIN32
 	if (fcntl(hg->fd, F_SETFL, flags) == -1)
 		goto close_exit;
+#endif
 	return 0;
 close_exit:
 	save = errno;
+#ifdef _WIN32
+	closesocket(hg->fd);
+#else
 	close(hg->fd);
+#endif
 	errno = save;
 	return -1;
 }

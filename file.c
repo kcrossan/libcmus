@@ -22,7 +22,6 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -71,6 +70,43 @@ ssize_t write_all(int fd, const void *buf, size_t count)
 	return count_save;
 }
 
+#ifdef _WIN32
+char *mmap_file(const char *filename, int *size)
+{
+	char *buf;
+	HANDLE fd;
+	
+	fd = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (fd == INVALID_HANDLE_VALUE)
+		goto err;
+	
+	*size = GetFileSize(fd, NULL);
+	if(*size == INVALID_FILE_SIZE)
+		goto close_err;
+
+	/* can't mmap empty files */
+	buf = NULL;
+	if (*size) {
+		HANDLE map = CreateFileMapping(fd, NULL, PAGE_READONLY, 0, 0, NULL);
+		if (map == INVALID_HANDLE_VALUE)
+			goto close_err;
+		buf = MapViewOfFile(map, FILE_MAP_READ, 0, 0, 0);
+		CloseHandle(map);
+		if (!buf)
+			goto close_err;
+	}
+
+	CloseHandle(fd);
+	return buf;
+
+close_err:
+	CloseHandle(fd);
+err:
+	*size = -1;
+	return NULL;
+}
+
+#else //!_WIN32
 char *mmap_file(const char *filename, int *size)
 {
 	struct stat st;
@@ -102,6 +138,7 @@ err:
 	*size = -1;
 	return NULL;
 }
+#endif
 
 void buffer_for_each_line(const char *buf, int size,
 		int (*cb)(void *data, const char *line),

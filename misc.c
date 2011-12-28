@@ -158,7 +158,11 @@ static void make_dir(const char *dirname)
 		return;
 	if (rc == -1)
 		die_errno("error: opening `%s'", dirname);
-	rc = mkdir(dirname, 0700);
+#ifdef _WIN32
+		rc = mkdir(dirname);
+#else
+		rc = mkdir(dirname, 0700);
+#endif
 	if (rc == -1)
 		die_errno("error: creating directory `%s'", dirname);
 }
