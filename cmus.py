@@ -1,7 +1,7 @@
 '''Wrapper for track_info.h
 
 Generated with:
-/usr/bin/ctypesgen.py -l libcmus.so ../track_info.h ../player.h ../input.h ../output.h ../debug.h ../buffer.h -o cmus.py
+C:/msys/bin/ctypesgen.py -l libcmus track_info.h player.h input.h output.h debug.h buffer.h -o cmus.py
 
 Do not modify this file.
 '''
@@ -184,7 +184,7 @@ class MutableString(UserString):
     def __init__(self, string=""):
         self.data = string
     def __hash__(self):
-        raise TypeError, "unhashable type (it is mutable)"
+        raise TypeError("unhashable type (it is mutable)")
     def __setitem__(self, index, sub):
         if index < 0:
             index += len(self.data)
@@ -233,7 +233,7 @@ class String(MutableString, Union):
 
     def __len__(self):
         return self.data and len(self.data) or 0
-    
+
     def from_param(cls, obj):
         # Convert None or 0
         if obj is None or obj == 0:
@@ -246,15 +246,15 @@ class String(MutableString, Union):
         # Convert from str
         elif isinstance(obj, str):
             return cls(obj)
-        
+
         # Convert from c_char_p
         elif isinstance(obj, c_char_p):
             return obj
-        
+
         # Convert from POINTER(c_char)
         elif isinstance(obj, POINTER(c_char)):
             return obj
-        
+
         # Convert from raw pointer
         elif isinstance(obj, int):
             return cls(cast(obj, POINTER(c_char)))
@@ -264,7 +264,7 @@ class String(MutableString, Union):
             return String.from_param(obj._as_parameter_)
     from_param = classmethod(from_param)
 
-def ReturnString(obj):
+def ReturnString(obj, func=None, arguments=None):
     return String.from_param(obj)
 
 # As of ctypes 1.0, ctypes does not support custom error-checking
@@ -300,7 +300,6 @@ class _variadic_function(object):
             i+=1
         return self.func(*fixed_args+list(args[i:]))
 
-
 # End preamble
 
 _libs = {}
@@ -312,14 +311,14 @@ _libdirs = []
 # Copyright (c) 2008 David James
 # Copyright (c) 2006-2008 Alex Holkner
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions 
+# modification, are permitted provided that the following conditions
 # are met:
 #
 #  * Redistributions of source code must retain the above copyright
 #    notice, this list of conditions and the following disclaimer.
-#  * Redistributions in binary form must reproduce the above copyright 
+#  * Redistributions in binary form must reproduce the above copyright
 #    notice, this list of conditions and the following disclaimer in
 #    the documentation and/or other materials provided with the
 #    distribution.
@@ -355,17 +354,17 @@ def _environ_path(name):
 class LibraryLoader(object):
     def __init__(self):
         self.other_dirs=[]
-    
+
     def load_library(self,libname):
         """Given the name of a library, load it."""
         paths = self.getpaths(libname)
-        
+
         for path in paths:
             if os.path.exists(path):
                 return self.load(path)
-        
-        raise ImportError,"%s not found." % libname
-    
+
+        raise ImportError("%s not found." % libname)
+
     def load(self,path):
         """Given a path to a library, load it."""
         try:
@@ -373,25 +372,25 @@ class LibraryLoader(object):
             # of the default RTLD_LOCAL.  Without this, you end up with
             # libraries not being loadable, resulting in "Symbol not found"
             # errors
-            if True:
+            if sys.platform == 'darwin':
                 return ctypes.CDLL(path, ctypes.RTLD_GLOBAL)
             else:
                 return ctypes.cdll.LoadLibrary(path)
         except OSError,e:
-            raise ImportError,e
-    
+            raise ImportError(e)
+
     def getpaths(self,libname):
         """Return a list of paths where the library might be found."""
         if os.path.isabs(libname):
             yield libname
-        
         else:
+            # FIXME / TODO return '.' and os.path.dirname(__file__)
             for path in self.getplatformpaths(libname):
                 yield path
-            
+
             path = ctypes.util.find_library(libname)
             if path: yield path
-    
+
     def getplatformpaths(self, libname):
         return []
 
@@ -400,20 +399,20 @@ class LibraryLoader(object):
 class DarwinLibraryLoader(LibraryLoader):
     name_formats = ["lib%s.dylib", "lib%s.so", "lib%s.bundle", "%s.dylib",
                 "%s.so", "%s.bundle", "%s"]
-    
+
     def getplatformpaths(self,libname):
         if os.path.pathsep in libname:
             names = [libname]
         else:
             names = [format % libname for format in self.name_formats]
-        
+
         for dir in self.getdirs(libname):
             for name in names:
                 yield os.path.join(dir,name)
-    
+
     def getdirs(self,libname):
         '''Implements the dylib search as specified in Apple documentation:
-        
+
         http://developer.apple.com/documentation/DeveloperTools/Conceptual/
             DynamicLibraries/Articles/DynamicLibraryUsageGuidelines.html
 
@@ -426,9 +425,9 @@ class DarwinLibraryLoader(LibraryLoader):
         if not dyld_fallback_library_path:
             dyld_fallback_library_path = [os.path.expanduser('~/lib'),
                                           '/usr/local/lib', '/usr/lib']
-        
+
         dirs = []
-        
+
         if '/' in libname:
             dirs.extend(_environ_path("DYLD_LIBRARY_PATH"))
         else:
@@ -437,7 +436,8 @@ class DarwinLibraryLoader(LibraryLoader):
 
         dirs.extend(self.other_dirs)
         dirs.append(".")
-        
+        dirs.append(os.path.dirname(__file__))
+
         if hasattr(sys, 'frozen') and sys.frozen == 'macosx_app':
             dirs.append(os.path.join(
                 os.environ['RESOURCEPATH'],
@@ -445,14 +445,14 @@ class DarwinLibraryLoader(LibraryLoader):
                 'Frameworks'))
 
         dirs.extend(dyld_fallback_library_path)
-        
+
         return dirs
 
 # Posix
 
 class PosixLibraryLoader(LibraryLoader):
     _ld_so_cache = None
-    
+
     def _create_ld_so_cache(self):
         # Recreate search path followed by ld.so.  This is going to be
         # slow to build, and incorrect (ld.so uses ld.so.cache, which may
@@ -471,6 +471,7 @@ class PosixLibraryLoader(LibraryLoader):
                 directories.extend(os.environ[name].split(os.pathsep))
         directories.extend(self.other_dirs)
         directories.append(".")
+        directories.append(os.path.dirname(__file__))
 
         try: directories.extend([dir.strip() for dir in open('/etc/ld.so.conf')])
         except IOError: pass
@@ -488,7 +489,7 @@ class PosixLibraryLoader(LibraryLoader):
                     # Index by filename
                     if file not in cache:
                         cache[file] = path
-                    
+
                     # Index by library name
                     match = lib_re.match(file)
                     if match:
@@ -499,7 +500,7 @@ class PosixLibraryLoader(LibraryLoader):
                 pass
 
         self._ld_so_cache = cache
-    
+
     def getplatformpaths(self, libname):
         if self._ld_so_cache is None:
             self._create_ld_so_cache()
@@ -525,14 +526,39 @@ class _WindowsLibrary(object):
                 raise
 
 class WindowsLibraryLoader(LibraryLoader):
-    name_formats = ["%s.dll", "lib%s.dll"]
-    
+    name_formats = ["%s.dll", "lib%s.dll", "%slib.dll"]
+
+    def load_library(self, libname):
+        try:
+            result = LibraryLoader.load_library(self, libname)
+        except ImportError:
+            result = None
+            if os.path.sep not in libname:
+                for name in self.name_formats:
+                    try:
+                        result = getattr(ctypes.cdll, name % libname)
+                        if result:
+                            break
+                    except WindowsError:
+                        result = None
+            if result is None:
+                try:
+                    result = getattr(ctypes.cdll, libname)
+                except WindowsError:
+                    result = None
+            if result is None:
+                raise ImportError("%s not found." % libname)
+        return result
+
     def load(self, path):
         return _WindowsLibrary(path)
-    
+
     def getplatformpaths(self, libname):
         if os.path.sep not in libname:
             for name in self.name_formats:
+                dll_in_current_dir = os.path.abspath(name % libname)
+                if os.path.exists(dll_in_current_dir):
+                    yield dll_in_current_dir
                 path = ctypes.util.find_library(name % libname)
                 if path:
                     yield path
@@ -563,204 +589,288 @@ add_library_search_dirs([])
 
 # Begin libraries
 
-_libs["libcmus.so"] = load_library("libcmus.so")
+_libs["libcmus"] = load_library("libcmus")
 
 # 1 libraries
 # End libraries
 
 # No modules
 
-__time_t = c_long # /usr/include/bits/types.h: 149
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 33
+for _lib in _libs.values():
+    try:
+        duration = (c_int).in_dll(_lib, 'duration')
+        break
+    except:
+        pass
 
-time_t = __time_t # /usr/include/time.h: 76
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 34
+for _lib in _libs.values():
+    try:
+        bitrate = (c_long).in_dll(_lib, 'bitrate')
+        break
+    except:
+        pass
 
-# /home/kevin/cmus-v2.4.2/keyval.h: 4
-class struct_keyval(Structure):
-    pass
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 35
+for _lib in _libs.values():
+    try:
+        codec = (String).in_dll(_lib, 'codec')
+        break
+    except:
+        pass
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 26
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 36
+for _lib in _libs.values():
+    try:
+        ref = (c_int).in_dll(_lib, 'ref')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 37
+for _lib in _libs.values():
+    try:
+        filename = (String).in_dll(_lib, 'filename')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 39
+for _lib in _libs.values():
+    try:
+        tracknumber = (c_int).in_dll(_lib, 'tracknumber')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 40
+for _lib in _libs.values():
+    try:
+        discnumber = (c_int).in_dll(_lib, 'discnumber')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 41
+for _lib in _libs.values():
+    try:
+        date = (c_int).in_dll(_lib, 'date')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 42
+for _lib in _libs.values():
+    try:
+        rg_track_gain = (c_double).in_dll(_lib, 'rg_track_gain')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 43
+for _lib in _libs.values():
+    try:
+        rg_track_peak = (c_double).in_dll(_lib, 'rg_track_peak')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 44
+for _lib in _libs.values():
+    try:
+        rg_album_gain = (c_double).in_dll(_lib, 'rg_album_gain')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 45
+for _lib in _libs.values():
+    try:
+        rg_album_peak = (c_double).in_dll(_lib, 'rg_album_peak')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 46
+for _lib in _libs.values():
+    try:
+        artist = (String).in_dll(_lib, 'artist')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 47
+for _lib in _libs.values():
+    try:
+        album = (String).in_dll(_lib, 'album')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 48
+for _lib in _libs.values():
+    try:
+        title = (String).in_dll(_lib, 'title')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 49
+for _lib in _libs.values():
+    try:
+        genre = (String).in_dll(_lib, 'genre')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 50
+for _lib in _libs.values():
+    try:
+        comment = (String).in_dll(_lib, 'comment')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 51
+for _lib in _libs.values():
+    try:
+        albumartist = (String).in_dll(_lib, 'albumartist')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 52
+for _lib in _libs.values():
+    try:
+        artistsort = (String).in_dll(_lib, 'artistsort')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 54
+for _lib in _libs.values():
+    try:
+        collkey_artist = (String).in_dll(_lib, 'collkey_artist')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 55
+for _lib in _libs.values():
+    try:
+        collkey_album = (String).in_dll(_lib, 'collkey_album')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 56
+for _lib in _libs.values():
+    try:
+        collkey_title = (String).in_dll(_lib, 'collkey_title')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 57
+for _lib in _libs.values():
+    try:
+        collkey_genre = (String).in_dll(_lib, 'collkey_genre')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 58
+for _lib in _libs.values():
+    try:
+        collkey_comment = (String).in_dll(_lib, 'collkey_comment')
+        break
+    except:
+        pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 59
+for _lib in _libs.values():
+    try:
+        collkey_albumartist = (String).in_dll(_lib, 'collkey_albumartist')
+        break
+    except:
+        pass
+
+sort_key_t = c_size_t # C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 64
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 92
 class struct_track_info(Structure):
     pass
 
-struct_track_info.__slots__ = [
-    'comments',
-    'next',
-    'mtime',
-    'duration',
-    'bitrate',
-    'codec',
-    'ref',
-    'filename',
-    'tracknumber',
-    'discnumber',
-    'date',
-    'rg_track_gain',
-    'rg_track_peak',
-    'rg_album_gain',
-    'rg_album_peak',
-    'artist',
-    'album',
-    'title',
-    'genre',
-    'comment',
-    'albumartist',
-    'artistsort',
-    'collkey_artist',
-    'collkey_album',
-    'collkey_title',
-    'collkey_genre',
-    'collkey_comment',
-    'collkey_albumartist',
-    'is_va_compilation',
-]
-struct_track_info._fields_ = [
-    ('comments', POINTER(struct_keyval)),
-    ('next', POINTER(struct_track_info)),
-    ('mtime', time_t),
-    ('duration', c_int),
-    ('bitrate', c_long),
-    ('codec', String),
-    ('ref', c_int),
-    ('filename', String),
-    ('tracknumber', c_int),
-    ('discnumber', c_int),
-    ('date', c_int),
-    ('rg_track_gain', c_double),
-    ('rg_track_peak', c_double),
-    ('rg_album_gain', c_double),
-    ('rg_album_peak', c_double),
-    ('artist', String),
-    ('album', String),
-    ('title', String),
-    ('genre', String),
-    ('comment', String),
-    ('albumartist', String),
-    ('artistsort', String),
-    ('collkey_artist', String),
-    ('collkey_album', String),
-    ('collkey_title', String),
-    ('collkey_genre', String),
-    ('collkey_comment', String),
-    ('collkey_albumartist', String),
-    ('is_va_compilation', c_int, 1),
-]
-
-sort_key_t = c_size_t # /home/kevin/cmus-v2.4.2/track_info.h: 64
-
-# /home/kevin/cmus-v2.4.2/track_info.h: 92
-if hasattr(_libs['libcmus.so'], 'track_info_new'):
-    track_info_new = _libs['libcmus.so'].track_info_new
-    track_info_new.restype = POINTER(struct_track_info)
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 92
+if hasattr(_libs['libcmus'], 'track_info_new'):
+    track_info_new = _libs['libcmus'].track_info_new
     track_info_new.argtypes = [String]
+    track_info_new.restype = POINTER(struct_track_info)
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 93
-if hasattr(_libs['libcmus.so'], 'track_info_set_comments'):
-    track_info_set_comments = _libs['libcmus.so'].track_info_set_comments
-    track_info_set_comments.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\keyval.h: 4
+class struct_keyval(Structure):
+    pass
+
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 93
+if hasattr(_libs['libcmus'], 'track_info_set_comments'):
+    track_info_set_comments = _libs['libcmus'].track_info_set_comments
     track_info_set_comments.argtypes = [POINTER(struct_track_info), POINTER(struct_keyval)]
+    track_info_set_comments.restype = None
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 95
-if hasattr(_libs['libcmus.so'], 'track_info_ref'):
-    track_info_ref = _libs['libcmus.so'].track_info_ref
-    track_info_ref.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 95
+if hasattr(_libs['libcmus'], 'track_info_ref'):
+    track_info_ref = _libs['libcmus'].track_info_ref
     track_info_ref.argtypes = [POINTER(struct_track_info)]
+    track_info_ref.restype = None
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 96
-if hasattr(_libs['libcmus.so'], 'track_info_unref'):
-    track_info_unref = _libs['libcmus.so'].track_info_unref
-    track_info_unref.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 96
+if hasattr(_libs['libcmus'], 'track_info_unref'):
+    track_info_unref = _libs['libcmus'].track_info_unref
     track_info_unref.argtypes = [POINTER(struct_track_info)]
+    track_info_unref.restype = None
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 102
-if hasattr(_libs['libcmus.so'], 'track_info_has_tag'):
-    track_info_has_tag = _libs['libcmus.so'].track_info_has_tag
-    track_info_has_tag.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 102
+if hasattr(_libs['libcmus'], 'track_info_has_tag'):
+    track_info_has_tag = _libs['libcmus'].track_info_has_tag
     track_info_has_tag.argtypes = [POINTER(struct_track_info)]
+    track_info_has_tag.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 110
-if hasattr(_libs['libcmus.so'], 'track_info_matches'):
-    track_info_matches = _libs['libcmus.so'].track_info_matches
-    track_info_matches.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 110
+if hasattr(_libs['libcmus'], 'track_info_matches'):
+    track_info_matches = _libs['libcmus'].track_info_matches
     track_info_matches.argtypes = [POINTER(struct_track_info), String, c_uint]
+    track_info_matches.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 120
-if hasattr(_libs['libcmus.so'], 'track_info_matches_full'):
-    track_info_matches_full = _libs['libcmus.so'].track_info_matches_full
-    track_info_matches_full.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 120
+if hasattr(_libs['libcmus'], 'track_info_matches_full'):
+    track_info_matches_full = _libs['libcmus'].track_info_matches_full
     track_info_matches_full.argtypes = [POINTER(struct_track_info), String, c_uint, c_uint, c_int]
+    track_info_matches_full.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 123
-if hasattr(_libs['libcmus.so'], 'track_info_cmp'):
-    track_info_cmp = _libs['libcmus.so'].track_info_cmp
-    track_info_cmp.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 123
+if hasattr(_libs['libcmus'], 'track_info_cmp'):
+    track_info_cmp = _libs['libcmus'].track_info_cmp
     track_info_cmp.argtypes = [POINTER(struct_track_info), POINTER(struct_track_info), POINTER(sort_key_t)]
+    track_info_cmp.restype = c_int
 
-# /usr/include/bits/pthreadtypes.h: 61
-class struct___pthread_internal_list(Structure):
+# c:\\msys\\mingw\\bin\\../lib/gcc/mingw32/4.6.1/../../../../include/pthread.h: 589
+class struct_pthread_mutex_t_(Structure):
     pass
 
-struct___pthread_internal_list.__slots__ = [
-    '__prev',
-    '__next',
-]
-struct___pthread_internal_list._fields_ = [
-    ('__prev', POINTER(struct___pthread_internal_list)),
-    ('__next', POINTER(struct___pthread_internal_list)),
-]
+pthread_mutex_t = POINTER(struct_pthread_mutex_t_) # c:\\msys\\mingw\\bin\\../lib/gcc/mingw32/4.6.1/../../../../include/pthread.h: 589
 
-__pthread_list_t = struct___pthread_internal_list # /usr/include/bits/pthreadtypes.h: 65
-
-# /usr/include/bits/pthreadtypes.h: 78
-class struct___pthread_mutex_s(Structure):
-    pass
-
-struct___pthread_mutex_s.__slots__ = [
-    '__lock',
-    '__count',
-    '__owner',
-    '__nusers',
-    '__kind',
-    '__spins',
-    '__list',
-]
-struct___pthread_mutex_s._fields_ = [
-    ('__lock', c_int),
-    ('__count', c_uint),
-    ('__owner', c_int),
-    ('__nusers', c_uint),
-    ('__kind', c_int),
-    ('__spins', c_int),
-    ('__list', __pthread_list_t),
-]
-
-# /usr/include/bits/pthreadtypes.h: 104
-class union_anon_4(Union):
-    pass
-
-union_anon_4.__slots__ = [
-    '__data',
-    '__size',
-    '__align',
-]
-union_anon_4._fields_ = [
-    ('__data', struct___pthread_mutex_s),
-    ('__size', c_char * 40),
-    ('__align', c_long),
-]
-
-pthread_mutex_t = union_anon_4 # /usr/include/bits/pthreadtypes.h: 104
-
-# /home/kevin/cmus-v2.4.2/locking.h: 9
-if hasattr(_libs['libcmus.so'], 'cmus_mutex_lock'):
-    cmus_mutex_lock = _libs['libcmus.so'].cmus_mutex_lock
-    cmus_mutex_lock.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\locking.h: 9
+if hasattr(_libs['libcmus'], 'cmus_mutex_lock'):
+    cmus_mutex_lock = _libs['libcmus'].cmus_mutex_lock
     cmus_mutex_lock.argtypes = [POINTER(pthread_mutex_t)]
+    cmus_mutex_lock.restype = None
 
-# /home/kevin/cmus-v2.4.2/locking.h: 10
-if hasattr(_libs['libcmus.so'], 'cmus_mutex_unlock'):
-    cmus_mutex_unlock = _libs['libcmus.so'].cmus_mutex_unlock
-    cmus_mutex_unlock.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\locking.h: 10
+if hasattr(_libs['libcmus'], 'cmus_mutex_unlock'):
+    cmus_mutex_unlock = _libs['libcmus'].cmus_mutex_unlock
     cmus_mutex_unlock.argtypes = [POINTER(pthread_mutex_t)]
+    cmus_mutex_unlock.restype = None
 
 struct_keyval.__slots__ = [
     'key',
@@ -771,43 +881,43 @@ struct_keyval._fields_ = [
     ('val', String),
 ]
 
-enum_anon_25 = c_int # /home/kevin/cmus-v2.4.2/player.h: 29
+enum_anon_6 = c_int # C:\\msys\\home\\Kevin\\libcmus\\player.h: 29
 
-PLAYER_ERROR_SUCCESS = 0 # /home/kevin/cmus-v2.4.2/player.h: 29
+PLAYER_ERROR_SUCCESS = 0 # C:\\msys\\home\\Kevin\\libcmus\\player.h: 29
 
-PLAYER_ERROR_ERRNO = (PLAYER_ERROR_SUCCESS + 1) # /home/kevin/cmus-v2.4.2/player.h: 29
+PLAYER_ERROR_ERRNO = (PLAYER_ERROR_SUCCESS + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 29
 
-PLAYER_ERROR_NOT_SUPPORTED = (PLAYER_ERROR_ERRNO + 1) # /home/kevin/cmus-v2.4.2/player.h: 29
+PLAYER_ERROR_NOT_SUPPORTED = (PLAYER_ERROR_ERRNO + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 29
 
-# /home/kevin/cmus-v2.4.2/player.h: 38
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 38
 try:
-    player_status_names = (POINTER(POINTER(c_char))).in_dll(_libs['libcmus.so'], 'player_status_names')
+    player_status_names = (POINTER(POINTER(c_char))).in_dll(_libs['libcmus'], 'player_status_names')
 except:
     pass
 
-enum_player_status = c_int # /home/kevin/cmus-v2.4.2/player.h: 39
+enum_player_status = c_int # C:\\msys\\home\\Kevin\\libcmus\\player.h: 39
 
-PLAYER_STATUS_STOPPED = 0 # /home/kevin/cmus-v2.4.2/player.h: 39
+PLAYER_STATUS_STOPPED = 0 # C:\\msys\\home\\Kevin\\libcmus\\player.h: 39
 
-PLAYER_STATUS_PLAYING = (PLAYER_STATUS_STOPPED + 1) # /home/kevin/cmus-v2.4.2/player.h: 39
+PLAYER_STATUS_PLAYING = (PLAYER_STATUS_STOPPED + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 39
 
-PLAYER_STATUS_PAUSED = (PLAYER_STATUS_PLAYING + 1) # /home/kevin/cmus-v2.4.2/player.h: 39
+PLAYER_STATUS_PAUSED = (PLAYER_STATUS_PLAYING + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 39
 
-NR_PLAYER_STATUS = (PLAYER_STATUS_PAUSED + 1) # /home/kevin/cmus-v2.4.2/player.h: 39
+NR_PLAYER_STATUS = (PLAYER_STATUS_PAUSED + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 39
 
-enum_replaygain = c_int # /home/kevin/cmus-v2.4.2/player.h: 46
+enum_replaygain = c_int # C:\\msys\\home\\Kevin\\libcmus\\player.h: 46
 
-RG_DISABLED = 0 # /home/kevin/cmus-v2.4.2/player.h: 46
+RG_DISABLED = 0 # C:\\msys\\home\\Kevin\\libcmus\\player.h: 46
 
-RG_TRACK = (RG_DISABLED + 1) # /home/kevin/cmus-v2.4.2/player.h: 46
+RG_TRACK = (RG_DISABLED + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 46
 
-RG_ALBUM = (RG_TRACK + 1) # /home/kevin/cmus-v2.4.2/player.h: 46
+RG_ALBUM = (RG_TRACK + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 46
 
-RG_TRACK_PREFERRED = (RG_ALBUM + 1) # /home/kevin/cmus-v2.4.2/player.h: 46
+RG_TRACK_PREFERRED = (RG_ALBUM + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 46
 
-RG_ALBUM_PREFERRED = (RG_TRACK_PREFERRED + 1) # /home/kevin/cmus-v2.4.2/player.h: 46
+RG_ALBUM_PREFERRED = (RG_TRACK_PREFERRED + 1) # C:\\msys\\home\\Kevin\\libcmus\\player.h: 46
 
-# /home/kevin/cmus-v2.4.2/player.h: 54
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 54
 class struct_player_callbacks(Structure):
     pass
 
@@ -818,7 +928,7 @@ struct_player_callbacks._fields_ = [
     ('get_next', CFUNCTYPE(UNCHECKED(c_int), POINTER(POINTER(struct_track_info)))),
 ]
 
-# /home/kevin/cmus-v2.4.2/player.h: 58
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 58
 class struct_player_info(Structure):
     pass
 
@@ -853,591 +963,616 @@ struct_player_info._fields_ = [
     ('buffer_fill_changed', c_uint, 1),
 ]
 
-# /home/kevin/cmus-v2.4.2/player.h: 84
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 84
 try:
-    player_info = (struct_player_info).in_dll(_libs['libcmus.so'], 'player_info')
+    player_info = (struct_player_info).in_dll(_libs['libcmus'], 'player_info')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 85
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 85
 try:
-    player_cont = (c_int).in_dll(_libs['libcmus.so'], 'player_cont')
+    player_cont = (c_int).in_dll(_libs['libcmus'], 'player_cont')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 86
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 86
 try:
-    player_repeat_current = (c_int).in_dll(_libs['libcmus.so'], 'player_repeat_current')
+    player_repeat_current = (c_int).in_dll(_libs['libcmus'], 'player_repeat_current')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 87
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 87
 try:
-    replaygain = (enum_replaygain).in_dll(_libs['libcmus.so'], 'replaygain')
+    replaygain = (enum_replaygain).in_dll(_libs['libcmus'], 'replaygain')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 88
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 88
 try:
-    replaygain_limit = (c_int).in_dll(_libs['libcmus.so'], 'replaygain_limit')
+    replaygain_limit = (c_int).in_dll(_libs['libcmus'], 'replaygain_limit')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 89
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 89
 try:
-    replaygain_preamp = (c_double).in_dll(_libs['libcmus.so'], 'replaygain_preamp')
+    replaygain_preamp = (c_double).in_dll(_libs['libcmus'], 'replaygain_preamp')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 90
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 90
 try:
-    soft_vol = (c_int).in_dll(_libs['libcmus.so'], 'soft_vol')
+    soft_vol = (c_int).in_dll(_libs['libcmus'], 'soft_vol')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 91
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 91
 try:
-    soft_vol_l = (c_int).in_dll(_libs['libcmus.so'], 'soft_vol_l')
+    soft_vol_l = (c_int).in_dll(_libs['libcmus'], 'soft_vol_l')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 92
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 92
 try:
-    soft_vol_r = (c_int).in_dll(_libs['libcmus.so'], 'soft_vol_r')
+    soft_vol_r = (c_int).in_dll(_libs['libcmus'], 'soft_vol_r')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 94
-if hasattr(_libs['libcmus.so'], 'player_init'):
-    player_init = _libs['libcmus.so'].player_init
-    player_init.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 94
+if hasattr(_libs['libcmus'], 'player_init'):
+    player_init = _libs['libcmus'].player_init
     player_init.argtypes = [POINTER(struct_player_callbacks)]
+    player_init.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 95
-if hasattr(_libs['libcmus.so'], 'player_exit'):
-    player_exit = _libs['libcmus.so'].player_exit
-    player_exit.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 95
+if hasattr(_libs['libcmus'], 'player_exit'):
+    player_exit = _libs['libcmus'].player_exit
     player_exit.argtypes = []
+    player_exit.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 98
-if hasattr(_libs['libcmus.so'], 'player_set_file'):
-    player_set_file = _libs['libcmus.so'].player_set_file
-    player_set_file.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 98
+if hasattr(_libs['libcmus'], 'player_set_file'):
+    player_set_file = _libs['libcmus'].player_set_file
     player_set_file.argtypes = [POINTER(struct_track_info)]
+    player_set_file.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 101
-if hasattr(_libs['libcmus.so'], 'player_play_file'):
-    player_play_file = _libs['libcmus.so'].player_play_file
-    player_play_file.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 101
+if hasattr(_libs['libcmus'], 'player_play_file'):
+    player_play_file = _libs['libcmus'].player_play_file
     player_play_file.argtypes = [POINTER(struct_track_info)]
+    player_play_file.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 103
-if hasattr(_libs['libcmus.so'], 'player_play'):
-    player_play = _libs['libcmus.so'].player_play
-    player_play.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 103
+if hasattr(_libs['libcmus'], 'player_play'):
+    player_play = _libs['libcmus'].player_play
     player_play.argtypes = []
+    player_play.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 104
-if hasattr(_libs['libcmus.so'], 'player_stop'):
-    player_stop = _libs['libcmus.so'].player_stop
-    player_stop.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 104
+if hasattr(_libs['libcmus'], 'player_stop'):
+    player_stop = _libs['libcmus'].player_stop
     player_stop.argtypes = []
+    player_stop.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 105
-if hasattr(_libs['libcmus.so'], 'player_pause'):
-    player_pause = _libs['libcmus.so'].player_pause
-    player_pause.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 105
+if hasattr(_libs['libcmus'], 'player_pause'):
+    player_pause = _libs['libcmus'].player_pause
     player_pause.argtypes = []
+    player_pause.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 106
-if hasattr(_libs['libcmus.so'], 'player_seek'):
-    player_seek = _libs['libcmus.so'].player_seek
-    player_seek.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 106
+if hasattr(_libs['libcmus'], 'player_seek'):
+    player_seek = _libs['libcmus'].player_seek
     player_seek.argtypes = [c_double, c_int, c_int]
+    player_seek.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 107
-if hasattr(_libs['libcmus.so'], 'player_set_op'):
-    player_set_op = _libs['libcmus.so'].player_set_op
-    player_set_op.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 107
+if hasattr(_libs['libcmus'], 'player_set_op'):
+    player_set_op = _libs['libcmus'].player_set_op
     player_set_op.argtypes = [String]
+    player_set_op.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 108
-if hasattr(_libs['libcmus.so'], 'player_set_buffer_chunks'):
-    player_set_buffer_chunks = _libs['libcmus.so'].player_set_buffer_chunks
-    player_set_buffer_chunks.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 108
+if hasattr(_libs['libcmus'], 'player_set_buffer_chunks'):
+    player_set_buffer_chunks = _libs['libcmus'].player_set_buffer_chunks
     player_set_buffer_chunks.argtypes = [c_uint]
+    player_set_buffer_chunks.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 109
-if hasattr(_libs['libcmus.so'], 'player_get_buffer_chunks'):
-    player_get_buffer_chunks = _libs['libcmus.so'].player_get_buffer_chunks
-    player_get_buffer_chunks.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 109
+if hasattr(_libs['libcmus'], 'player_get_buffer_chunks'):
+    player_get_buffer_chunks = _libs['libcmus'].player_get_buffer_chunks
     player_get_buffer_chunks.argtypes = []
+    player_get_buffer_chunks.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/player.h: 111
-if hasattr(_libs['libcmus.so'], 'player_set_soft_volume'):
-    player_set_soft_volume = _libs['libcmus.so'].player_set_soft_volume
-    player_set_soft_volume.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 111
+if hasattr(_libs['libcmus'], 'player_set_soft_volume'):
+    player_set_soft_volume = _libs['libcmus'].player_set_soft_volume
     player_set_soft_volume.argtypes = [c_int, c_int]
+    player_set_soft_volume.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 112
-if hasattr(_libs['libcmus.so'], 'player_set_soft_vol'):
-    player_set_soft_vol = _libs['libcmus.so'].player_set_soft_vol
-    player_set_soft_vol.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 112
+if hasattr(_libs['libcmus'], 'player_set_soft_vol'):
+    player_set_soft_vol = _libs['libcmus'].player_set_soft_vol
     player_set_soft_vol.argtypes = [c_int]
+    player_set_soft_vol.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 113
-if hasattr(_libs['libcmus.so'], 'player_set_rg'):
-    player_set_rg = _libs['libcmus.so'].player_set_rg
-    player_set_rg.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 113
+if hasattr(_libs['libcmus'], 'player_set_rg'):
+    player_set_rg = _libs['libcmus'].player_set_rg
     player_set_rg.argtypes = [enum_replaygain]
+    player_set_rg.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 114
-if hasattr(_libs['libcmus.so'], 'player_set_rg_limit'):
-    player_set_rg_limit = _libs['libcmus.so'].player_set_rg_limit
-    player_set_rg_limit.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 114
+if hasattr(_libs['libcmus'], 'player_set_rg_limit'):
+    player_set_rg_limit = _libs['libcmus'].player_set_rg_limit
     player_set_rg_limit.argtypes = [c_int]
+    player_set_rg_limit.restype = None
 
-# /home/kevin/cmus-v2.4.2/player.h: 115
-if hasattr(_libs['libcmus.so'], 'player_set_rg_preamp'):
-    player_set_rg_preamp = _libs['libcmus.so'].player_set_rg_preamp
-    player_set_rg_preamp.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 115
+if hasattr(_libs['libcmus'], 'player_set_rg_preamp'):
+    player_set_rg_preamp = _libs['libcmus'].player_set_rg_preamp
     player_set_rg_preamp.argtypes = [c_double]
+    player_set_rg_preamp.restype = None
 
-sample_format_t = c_uint # /home/kevin/cmus-v2.4.2/sf.h: 31
+sample_format_t = c_uint # C:\\msys\\home\\Kevin\\libcmus\\sf.h: 31
 
-# /home/kevin/cmus-v2.4.2/input.h: 11
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 11
 class struct_input_plugin(Structure):
     pass
 
-# /home/kevin/cmus-v2.4.2/input.h: 13
-if hasattr(_libs['libcmus.so'], 'ip_load_plugins'):
-    ip_load_plugins = _libs['libcmus.so'].ip_load_plugins
-    ip_load_plugins.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 13
+if hasattr(_libs['libcmus'], 'ip_load_plugins'):
+    ip_load_plugins = _libs['libcmus'].ip_load_plugins
     ip_load_plugins.argtypes = []
+    ip_load_plugins.restype = None
 
-# /home/kevin/cmus-v2.4.2/input.h: 19
-if hasattr(_libs['libcmus.so'], 'ip_new'):
-    ip_new = _libs['libcmus.so'].ip_new
-    ip_new.restype = POINTER(struct_input_plugin)
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 19
+if hasattr(_libs['libcmus'], 'ip_new'):
+    ip_new = _libs['libcmus'].ip_new
     ip_new.argtypes = [String]
+    ip_new.restype = POINTER(struct_input_plugin)
 
-# /home/kevin/cmus-v2.4.2/input.h: 24
-if hasattr(_libs['libcmus.so'], 'ip_delete'):
-    ip_delete = _libs['libcmus.so'].ip_delete
-    ip_delete.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 24
+if hasattr(_libs['libcmus'], 'ip_delete'):
+    ip_delete = _libs['libcmus'].ip_delete
     ip_delete.argtypes = [POINTER(struct_input_plugin)]
+    ip_delete.restype = None
 
-# /home/kevin/cmus-v2.4.2/input.h: 29
-if hasattr(_libs['libcmus.so'], 'ip_open'):
-    ip_open = _libs['libcmus.so'].ip_open
-    ip_open.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 29
+if hasattr(_libs['libcmus'], 'ip_open'):
+    ip_open = _libs['libcmus'].ip_open
     ip_open.argtypes = [POINTER(struct_input_plugin)]
+    ip_open.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 31
-if hasattr(_libs['libcmus.so'], 'ip_setup'):
-    ip_setup = _libs['libcmus.so'].ip_setup
-    ip_setup.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 31
+if hasattr(_libs['libcmus'], 'ip_setup'):
+    ip_setup = _libs['libcmus'].ip_setup
     ip_setup.argtypes = [POINTER(struct_input_plugin)]
+    ip_setup.restype = None
 
-# /home/kevin/cmus-v2.4.2/input.h: 36
-if hasattr(_libs['libcmus.so'], 'ip_close'):
-    ip_close = _libs['libcmus.so'].ip_close
-    ip_close.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 36
+if hasattr(_libs['libcmus'], 'ip_close'):
+    ip_close = _libs['libcmus'].ip_close
     ip_close.argtypes = [POINTER(struct_input_plugin)]
+    ip_close.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 41
-if hasattr(_libs['libcmus.so'], 'ip_read'):
-    ip_read = _libs['libcmus.so'].ip_read
-    ip_read.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 41
+if hasattr(_libs['libcmus'], 'ip_read'):
+    ip_read = _libs['libcmus'].ip_read
     ip_read.argtypes = [POINTER(struct_input_plugin), String, c_int]
+    ip_read.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 46
-if hasattr(_libs['libcmus.so'], 'ip_seek'):
-    ip_seek = _libs['libcmus.so'].ip_seek
-    ip_seek.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 46
+if hasattr(_libs['libcmus'], 'ip_seek'):
+    ip_seek = _libs['libcmus'].ip_seek
     ip_seek.argtypes = [POINTER(struct_input_plugin), c_double]
+    ip_seek.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 51
-if hasattr(_libs['libcmus.so'], 'ip_read_comments'):
-    ip_read_comments = _libs['libcmus.so'].ip_read_comments
-    ip_read_comments.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 51
+if hasattr(_libs['libcmus'], 'ip_read_comments'):
+    ip_read_comments = _libs['libcmus'].ip_read_comments
     ip_read_comments.argtypes = [POINTER(struct_input_plugin), POINTER(POINTER(struct_keyval))]
+    ip_read_comments.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 53
-if hasattr(_libs['libcmus.so'], 'ip_duration'):
-    ip_duration = _libs['libcmus.so'].ip_duration
-    ip_duration.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 53
+if hasattr(_libs['libcmus'], 'ip_duration'):
+    ip_duration = _libs['libcmus'].ip_duration
     ip_duration.argtypes = [POINTER(struct_input_plugin)]
+    ip_duration.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 54
-if hasattr(_libs['libcmus.so'], 'ip_bitrate'):
-    ip_bitrate = _libs['libcmus.so'].ip_bitrate
-    ip_bitrate.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 54
+if hasattr(_libs['libcmus'], 'ip_bitrate'):
+    ip_bitrate = _libs['libcmus'].ip_bitrate
     ip_bitrate.argtypes = [POINTER(struct_input_plugin)]
+    ip_bitrate.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 55
-if hasattr(_libs['libcmus.so'], 'ip_codec'):
-    ip_codec = _libs['libcmus.so'].ip_codec
-    ip_codec.restype = ReturnString
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 55
+if hasattr(_libs['libcmus'], 'ip_codec'):
+    ip_codec = _libs['libcmus'].ip_codec
     ip_codec.argtypes = [POINTER(struct_input_plugin)]
+    if sizeof(c_int) == sizeof(c_void_p):
+        ip_codec.restype = ReturnString
+    else:
+        ip_codec.restype = String
+        ip_codec.errcheck = ReturnString
 
-# /home/kevin/cmus-v2.4.2/input.h: 57
-if hasattr(_libs['libcmus.so'], 'ip_get_sf'):
-    ip_get_sf = _libs['libcmus.so'].ip_get_sf
-    ip_get_sf.restype = sample_format_t
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 57
+if hasattr(_libs['libcmus'], 'ip_get_sf'):
+    ip_get_sf = _libs['libcmus'].ip_get_sf
     ip_get_sf.argtypes = [POINTER(struct_input_plugin)]
+    ip_get_sf.restype = sample_format_t
 
-# /home/kevin/cmus-v2.4.2/input.h: 58
-if hasattr(_libs['libcmus.so'], 'ip_get_filename'):
-    ip_get_filename = _libs['libcmus.so'].ip_get_filename
-    ip_get_filename.restype = ReturnString
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 58
+if hasattr(_libs['libcmus'], 'ip_get_filename'):
+    ip_get_filename = _libs['libcmus'].ip_get_filename
     ip_get_filename.argtypes = [POINTER(struct_input_plugin)]
+    if sizeof(c_int) == sizeof(c_void_p):
+        ip_get_filename.restype = ReturnString
+    else:
+        ip_get_filename.restype = String
+        ip_get_filename.errcheck = ReturnString
 
-# /home/kevin/cmus-v2.4.2/input.h: 59
-if hasattr(_libs['libcmus.so'], 'ip_get_metadata'):
-    ip_get_metadata = _libs['libcmus.so'].ip_get_metadata
-    ip_get_metadata.restype = ReturnString
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 59
+if hasattr(_libs['libcmus'], 'ip_get_metadata'):
+    ip_get_metadata = _libs['libcmus'].ip_get_metadata
     ip_get_metadata.argtypes = [POINTER(struct_input_plugin)]
+    if sizeof(c_int) == sizeof(c_void_p):
+        ip_get_metadata.restype = ReturnString
+    else:
+        ip_get_metadata.restype = String
+        ip_get_metadata.errcheck = ReturnString
 
-# /home/kevin/cmus-v2.4.2/input.h: 60
-if hasattr(_libs['libcmus.so'], 'ip_is_remote'):
-    ip_is_remote = _libs['libcmus.so'].ip_is_remote
-    ip_is_remote.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 60
+if hasattr(_libs['libcmus'], 'ip_is_remote'):
+    ip_is_remote = _libs['libcmus'].ip_is_remote
     ip_is_remote.argtypes = [POINTER(struct_input_plugin)]
+    ip_is_remote.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 61
-if hasattr(_libs['libcmus.so'], 'ip_metadata_changed'):
-    ip_metadata_changed = _libs['libcmus.so'].ip_metadata_changed
-    ip_metadata_changed.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 61
+if hasattr(_libs['libcmus'], 'ip_metadata_changed'):
+    ip_metadata_changed = _libs['libcmus'].ip_metadata_changed
     ip_metadata_changed.argtypes = [POINTER(struct_input_plugin)]
+    ip_metadata_changed.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 62
-if hasattr(_libs['libcmus.so'], 'ip_eof'):
-    ip_eof = _libs['libcmus.so'].ip_eof
-    ip_eof.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 62
+if hasattr(_libs['libcmus'], 'ip_eof'):
+    ip_eof = _libs['libcmus'].ip_eof
     ip_eof.argtypes = [POINTER(struct_input_plugin)]
+    ip_eof.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/input.h: 63
-if hasattr(_libs['libcmus.so'], 'ip_get_error_msg'):
-    ip_get_error_msg = _libs['libcmus.so'].ip_get_error_msg
-    ip_get_error_msg.restype = ReturnString
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 63
+if hasattr(_libs['libcmus'], 'ip_get_error_msg'):
+    ip_get_error_msg = _libs['libcmus'].ip_get_error_msg
     ip_get_error_msg.argtypes = [POINTER(struct_input_plugin), c_int, String]
+    if sizeof(c_int) == sizeof(c_void_p):
+        ip_get_error_msg.restype = ReturnString
+    else:
+        ip_get_error_msg.restype = String
+        ip_get_error_msg.errcheck = ReturnString
 
-# /home/kevin/cmus-v2.4.2/input.h: 64
-if hasattr(_libs['libcmus.so'], 'ip_get_supported_extensions'):
-    ip_get_supported_extensions = _libs['libcmus.so'].ip_get_supported_extensions
-    ip_get_supported_extensions.restype = POINTER(POINTER(c_char))
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 64
+if hasattr(_libs['libcmus'], 'ip_get_supported_extensions'):
+    ip_get_supported_extensions = _libs['libcmus'].ip_get_supported_extensions
     ip_get_supported_extensions.argtypes = []
+    ip_get_supported_extensions.restype = POINTER(POINTER(c_char))
 
-# /home/kevin/cmus-v2.4.2/input.h: 65
-if hasattr(_libs['libcmus.so'], 'ip_dump_plugins'):
-    ip_dump_plugins = _libs['libcmus.so'].ip_dump_plugins
-    ip_dump_plugins.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\input.h: 65
+if hasattr(_libs['libcmus'], 'ip_dump_plugins'):
+    ip_dump_plugins = _libs['libcmus'].ip_dump_plugins
     ip_dump_plugins.argtypes = []
+    ip_dump_plugins.restype = None
 
-# /home/kevin/cmus-v2.4.2/output.h: 12
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 12
 try:
-    volume_max = (c_int).in_dll(_libs['libcmus.so'], 'volume_max')
+    volume_max = (c_int).in_dll(_libs['libcmus'], 'volume_max')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/output.h: 13
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 13
 try:
-    volume_l = (c_int).in_dll(_libs['libcmus.so'], 'volume_l')
+    volume_l = (c_int).in_dll(_libs['libcmus'], 'volume_l')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/output.h: 14
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 14
 try:
-    volume_r = (c_int).in_dll(_libs['libcmus.so'], 'volume_r')
+    volume_r = (c_int).in_dll(_libs['libcmus'], 'volume_r')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/output.h: 16
-if hasattr(_libs['libcmus.so'], 'op_load_plugins'):
-    op_load_plugins = _libs['libcmus.so'].op_load_plugins
-    op_load_plugins.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 16
+if hasattr(_libs['libcmus'], 'op_load_plugins'):
+    op_load_plugins = _libs['libcmus'].op_load_plugins
     op_load_plugins.argtypes = []
+    op_load_plugins.restype = None
 
-# /home/kevin/cmus-v2.4.2/output.h: 17
-if hasattr(_libs['libcmus.so'], 'op_exit_plugins'):
-    op_exit_plugins = _libs['libcmus.so'].op_exit_plugins
-    op_exit_plugins.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 17
+if hasattr(_libs['libcmus'], 'op_exit_plugins'):
+    op_exit_plugins = _libs['libcmus'].op_exit_plugins
     op_exit_plugins.argtypes = []
+    op_exit_plugins.restype = None
 
-# /home/kevin/cmus-v2.4.2/output.h: 24
-if hasattr(_libs['libcmus.so'], 'op_select'):
-    op_select = _libs['libcmus.so'].op_select
-    op_select.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 24
+if hasattr(_libs['libcmus'], 'op_select'):
+    op_select = _libs['libcmus'].op_select
     op_select.argtypes = [String]
+    op_select.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 25
-if hasattr(_libs['libcmus.so'], 'op_select_any'):
-    op_select_any = _libs['libcmus.so'].op_select_any
-    op_select_any.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 25
+if hasattr(_libs['libcmus'], 'op_select_any'):
+    op_select_any = _libs['libcmus'].op_select_any
     op_select_any.argtypes = []
+    op_select_any.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 32
-if hasattr(_libs['libcmus.so'], 'op_open'):
-    op_open = _libs['libcmus.so'].op_open
-    op_open.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 32
+if hasattr(_libs['libcmus'], 'op_open'):
+    op_open = _libs['libcmus'].op_open
     op_open.argtypes = [sample_format_t]
+    op_open.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 39
-if hasattr(_libs['libcmus.so'], 'op_drop'):
-    op_drop = _libs['libcmus.so'].op_drop
-    op_drop.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 39
+if hasattr(_libs['libcmus'], 'op_drop'):
+    op_drop = _libs['libcmus'].op_drop
     op_drop.argtypes = []
+    op_drop.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 46
-if hasattr(_libs['libcmus.so'], 'op_close'):
-    op_close = _libs['libcmus.so'].op_close
-    op_close.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 46
+if hasattr(_libs['libcmus'], 'op_close'):
+    op_close = _libs['libcmus'].op_close
     op_close.argtypes = []
+    op_close.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 53
-if hasattr(_libs['libcmus.so'], 'op_write'):
-    op_write = _libs['libcmus.so'].op_write
-    op_write.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 53
+if hasattr(_libs['libcmus'], 'op_write'):
+    op_write = _libs['libcmus'].op_write
     op_write.argtypes = [String, c_int]
+    op_write.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 58
-if hasattr(_libs['libcmus.so'], 'op_pause'):
-    op_pause = _libs['libcmus.so'].op_pause
-    op_pause.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 58
+if hasattr(_libs['libcmus'], 'op_pause'):
+    op_pause = _libs['libcmus'].op_pause
     op_pause.argtypes = []
+    op_pause.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 59
-if hasattr(_libs['libcmus.so'], 'op_unpause'):
-    op_unpause = _libs['libcmus.so'].op_unpause
-    op_unpause.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 59
+if hasattr(_libs['libcmus'], 'op_unpause'):
+    op_unpause = _libs['libcmus'].op_unpause
     op_unpause.argtypes = []
+    op_unpause.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 64
-if hasattr(_libs['libcmus.so'], 'op_buffer_space'):
-    op_buffer_space = _libs['libcmus.so'].op_buffer_space
-    op_buffer_space.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 64
+if hasattr(_libs['libcmus'], 'op_buffer_space'):
+    op_buffer_space = _libs['libcmus'].op_buffer_space
     op_buffer_space.argtypes = []
+    op_buffer_space.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 69
-for _lib in _libs.values():
-    if hasattr(_lib, 'op_reset'):
-        op_reset = _lib.op_reset
-        op_reset.restype = c_int
-        op_reset.argtypes = []
-        break
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 69
+for _lib in _libs.itervalues():
+    if not hasattr(_lib, 'op_reset'):
+        continue
+    op_reset = _lib.op_reset
+    op_reset.argtypes = []
+    op_reset.restype = c_int
+    break
 
-# /home/kevin/cmus-v2.4.2/output.h: 71
-if hasattr(_libs['libcmus.so'], 'mixer_open'):
-    mixer_open = _libs['libcmus.so'].mixer_open
-    mixer_open.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 71
+if hasattr(_libs['libcmus'], 'mixer_open'):
+    mixer_open = _libs['libcmus'].mixer_open
     mixer_open.argtypes = []
+    mixer_open.restype = None
 
-# /home/kevin/cmus-v2.4.2/output.h: 72
-if hasattr(_libs['libcmus.so'], 'mixer_close'):
-    mixer_close = _libs['libcmus.so'].mixer_close
-    mixer_close.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 72
+if hasattr(_libs['libcmus'], 'mixer_close'):
+    mixer_close = _libs['libcmus'].mixer_close
     mixer_close.argtypes = []
+    mixer_close.restype = None
 
-# /home/kevin/cmus-v2.4.2/output.h: 73
-if hasattr(_libs['libcmus.so'], 'mixer_set_volume'):
-    mixer_set_volume = _libs['libcmus.so'].mixer_set_volume
-    mixer_set_volume.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 73
+if hasattr(_libs['libcmus'], 'mixer_set_volume'):
+    mixer_set_volume = _libs['libcmus'].mixer_set_volume
     mixer_set_volume.argtypes = [c_int, c_int]
+    mixer_set_volume.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 74
-if hasattr(_libs['libcmus.so'], 'mixer_read_volume'):
-    mixer_read_volume = _libs['libcmus.so'].mixer_read_volume
-    mixer_read_volume.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 74
+if hasattr(_libs['libcmus'], 'mixer_read_volume'):
+    mixer_read_volume = _libs['libcmus'].mixer_read_volume
     mixer_read_volume.argtypes = []
+    mixer_read_volume.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 75
-if hasattr(_libs['libcmus.so'], 'mixer_get_fds'):
-    mixer_get_fds = _libs['libcmus.so'].mixer_get_fds
-    mixer_get_fds.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 75
+if hasattr(_libs['libcmus'], 'mixer_get_fds'):
+    mixer_get_fds = _libs['libcmus'].mixer_get_fds
     mixer_get_fds.argtypes = [POINTER(c_int)]
+    mixer_get_fds.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/output.h: 77
-if hasattr(_libs['libcmus.so'], 'op_add_options'):
-    op_add_options = _libs['libcmus.so'].op_add_options
-    op_add_options.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 77
+if hasattr(_libs['libcmus'], 'op_add_options'):
+    op_add_options = _libs['libcmus'].op_add_options
     op_add_options.argtypes = []
+    op_add_options.restype = None
 
-# /home/kevin/cmus-v2.4.2/output.h: 78
-if hasattr(_libs['libcmus.so'], 'op_get_error_msg'):
-    op_get_error_msg = _libs['libcmus.so'].op_get_error_msg
-    op_get_error_msg.restype = ReturnString
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 78
+if hasattr(_libs['libcmus'], 'op_get_error_msg'):
+    op_get_error_msg = _libs['libcmus'].op_get_error_msg
     op_get_error_msg.argtypes = [c_int, String]
+    if sizeof(c_int) == sizeof(c_void_p):
+        op_get_error_msg.restype = ReturnString
+    else:
+        op_get_error_msg.restype = String
+        op_get_error_msg.errcheck = ReturnString
 
-# /home/kevin/cmus-v2.4.2/output.h: 79
-if hasattr(_libs['libcmus.so'], 'op_dump_plugins'):
-    op_dump_plugins = _libs['libcmus.so'].op_dump_plugins
-    op_dump_plugins.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 79
+if hasattr(_libs['libcmus'], 'op_dump_plugins'):
+    op_dump_plugins = _libs['libcmus'].op_dump_plugins
     op_dump_plugins.argtypes = []
+    op_dump_plugins.restype = None
 
-# /home/kevin/cmus-v2.4.2/output.h: 80
-if hasattr(_libs['libcmus.so'], 'op_get_current'):
-    op_get_current = _libs['libcmus.so'].op_get_current
-    op_get_current.restype = ReturnString
+# C:\\msys\\home\\Kevin\\libcmus\\output.h: 80
+if hasattr(_libs['libcmus'], 'op_get_current'):
+    op_get_current = _libs['libcmus'].op_get_current
     op_get_current.argtypes = []
+    if sizeof(c_int) == sizeof(c_void_p):
+        op_get_current.restype = ReturnString
+    else:
+        op_get_current.restype = String
+        op_get_current.errcheck = ReturnString
 
-# /home/kevin/cmus-v2.4.2/debug.h: 14
-if hasattr(_libs['libcmus.so'], 'debug_init'):
-    debug_init = _libs['libcmus.so'].debug_init
-    debug_init.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\debug.h: 14
+if hasattr(_libs['libcmus'], 'debug_init'):
+    debug_init = _libs['libcmus'].debug_init
     debug_init.argtypes = []
+    debug_init.restype = None
 
-# /home/kevin/cmus-v2.4.2/debug.h: 15
-if hasattr(_libs['libcmus.so'], '__debug_bug'):
-    _func = _libs['libcmus.so'].__debug_bug
+# C:\\msys\\home\\Kevin\\libcmus\\debug.h: 15
+if hasattr(_libs['libcmus'], '__debug_bug'):
+    _func = _libs['libcmus'].__debug_bug
     _restype = None
     _argtypes = [String, String]
     __debug_bug = _variadic_function(_func,_restype,_argtypes)
 
-# /home/kevin/cmus-v2.4.2/debug.h: 16
-if hasattr(_libs['libcmus.so'], '__debug_print'):
-    _func = _libs['libcmus.so'].__debug_print
+# C:\\msys\\home\\Kevin\\libcmus\\debug.h: 16
+if hasattr(_libs['libcmus'], '__debug_print'):
+    _func = _libs['libcmus'].__debug_print
     _restype = None
     _argtypes = [String, String]
     __debug_print = _variadic_function(_func,_restype,_argtypes)
 
-# /home/kevin/cmus-v2.4.2/debug.h: 18
-if hasattr(_libs['libcmus.so'], 'timer_get'):
-    timer_get = _libs['libcmus.so'].timer_get
-    timer_get.restype = c_uint64
+# C:\\msys\\home\\Kevin\\libcmus\\debug.h: 18
+if hasattr(_libs['libcmus'], 'timer_get'):
+    timer_get = _libs['libcmus'].timer_get
     timer_get.argtypes = []
+    timer_get.restype = c_uint64
 
-# /home/kevin/cmus-v2.4.2/debug.h: 19
-if hasattr(_libs['libcmus.so'], 'timer_print'):
-    timer_print = _libs['libcmus.so'].timer_print
-    timer_print.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\debug.h: 19
+if hasattr(_libs['libcmus'], 'timer_print'):
+    timer_print = _libs['libcmus'].timer_print
     timer_print.argtypes = [String, c_uint64]
+    timer_print.restype = None
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 7
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 7
 try:
-    buffer_nr_chunks = (c_uint).in_dll(_libs['libcmus.so'], 'buffer_nr_chunks')
+    buffer_nr_chunks = (c_uint).in_dll(_libs['libcmus'], 'buffer_nr_chunks')
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 9
-if hasattr(_libs['libcmus.so'], 'buffer_init'):
-    buffer_init = _libs['libcmus.so'].buffer_init
-    buffer_init.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 9
+if hasattr(_libs['libcmus'], 'buffer_init'):
+    buffer_init = _libs['libcmus'].buffer_init
     buffer_init.argtypes = []
+    buffer_init.restype = None
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 10
-if hasattr(_libs['libcmus.so'], 'buffer_free'):
-    buffer_free = _libs['libcmus.so'].buffer_free
-    buffer_free.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 10
+if hasattr(_libs['libcmus'], 'buffer_free'):
+    buffer_free = _libs['libcmus'].buffer_free
     buffer_free.argtypes = []
+    buffer_free.restype = None
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 11
-if hasattr(_libs['libcmus.so'], 'buffer_get_rpos'):
-    buffer_get_rpos = _libs['libcmus.so'].buffer_get_rpos
-    buffer_get_rpos.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 11
+if hasattr(_libs['libcmus'], 'buffer_get_rpos'):
+    buffer_get_rpos = _libs['libcmus'].buffer_get_rpos
     buffer_get_rpos.argtypes = [POINTER(POINTER(c_char))]
+    buffer_get_rpos.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 12
-if hasattr(_libs['libcmus.so'], 'buffer_get_wpos'):
-    buffer_get_wpos = _libs['libcmus.so'].buffer_get_wpos
-    buffer_get_wpos.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 12
+if hasattr(_libs['libcmus'], 'buffer_get_wpos'):
+    buffer_get_wpos = _libs['libcmus'].buffer_get_wpos
     buffer_get_wpos.argtypes = [POINTER(POINTER(c_char))]
+    buffer_get_wpos.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 13
-if hasattr(_libs['libcmus.so'], 'buffer_consume'):
-    buffer_consume = _libs['libcmus.so'].buffer_consume
-    buffer_consume.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 13
+if hasattr(_libs['libcmus'], 'buffer_consume'):
+    buffer_consume = _libs['libcmus'].buffer_consume
     buffer_consume.argtypes = [c_int]
+    buffer_consume.restype = None
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 14
-if hasattr(_libs['libcmus.so'], 'buffer_fill'):
-    buffer_fill = _libs['libcmus.so'].buffer_fill
-    buffer_fill.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 14
+if hasattr(_libs['libcmus'], 'buffer_fill'):
+    buffer_fill = _libs['libcmus'].buffer_fill
     buffer_fill.argtypes = [c_int]
+    buffer_fill.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 15
-if hasattr(_libs['libcmus.so'], 'buffer_reset'):
-    buffer_reset = _libs['libcmus.so'].buffer_reset
-    buffer_reset.restype = None
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 15
+if hasattr(_libs['libcmus'], 'buffer_reset'):
+    buffer_reset = _libs['libcmus'].buffer_reset
     buffer_reset.argtypes = []
+    buffer_reset.restype = None
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 16
-if hasattr(_libs['libcmus.so'], 'buffer_get_filled_chunks'):
-    buffer_get_filled_chunks = _libs['libcmus.so'].buffer_get_filled_chunks
-    buffer_get_filled_chunks.restype = c_int
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 16
+if hasattr(_libs['libcmus'], 'buffer_get_filled_chunks'):
+    buffer_get_filled_chunks = _libs['libcmus'].buffer_get_filled_chunks
     buffer_get_filled_chunks.argtypes = []
+    buffer_get_filled_chunks.restype = c_int
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 66
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 83
 try:
     SORT_INVALID = (-1)
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 67
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 85
 try:
     TI_MATCH_ARTIST = (1 << 0)
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 67
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 86
 try:
     TI_MATCH_ALBUM = (1 << 1)
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 67
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 87
 try:
     TI_MATCH_TITLE = (1 << 2)
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 67
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 88
 try:
     TI_MATCH_ALBUMARTIST = (1 << 3)
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/track_info.h: 67
+# C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 89
 try:
     TI_MATCH_ALL = (~0)
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 117
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 117
 try:
     player_info_lock = (cmus_mutex_lock (pointer((player_info.mutex))))
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/player.h: 117
+# C:\\msys\\home\\Kevin\\libcmus\\player.h: 118
 try:
     player_info_unlock = (cmus_mutex_unlock (pointer((player_info.mutex))))
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/config/debug.h: 3
+# C:\\msys\\home\\Kevin\\libcmus\\config/debug.h: 4
 try:
-    DEBUG = 2
+    DEBUG = 1
 except:
     pass
 
-# /home/kevin/cmus-v2.4.2/debug.h: 22
+# C:\\msys\\home\\Kevin\\libcmus\\debug.h: 23
 def __STR(a):
     return a
 
-# /home/kevin/cmus-v2.4.2/buffer.h: 4
+# C:\\msys\\home\\Kevin\\libcmus\\buffer.h: 5
 try:
     CHUNK_SIZE = (60 * 1024)
 except:
     pass
 
-track_info = struct_track_info # /home/kevin/cmus-v2.4.2/track_info.h: 26
+track_info = struct_track_info # C:\\msys\\home\\Kevin\\libcmus\\track_info.h: 92
 
-player_callbacks = struct_player_callbacks # /home/kevin/cmus-v2.4.2/player.h: 54
+player_callbacks = struct_player_callbacks # C:\\msys\\home\\Kevin\\libcmus\\player.h: 54
 
-#player_info = struct_player_info # /home/kevin/cmus-v2.4.2/player.h: 58
+#player_info = struct_player_info # C:\\msys\\home\\Kevin\\libcmus\\player.h: 58
 
-input_plugin = struct_input_plugin # /home/kevin/cmus-v2.4.2/input.h: 11
+input_plugin = struct_input_plugin # C:\\msys\\home\\Kevin\\libcmus\\input.h: 11
 
 # No inserted files
 

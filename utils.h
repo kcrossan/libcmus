@@ -22,6 +22,15 @@
 
 #include "config/utils.h"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#ifdef lseek
+#undef lseek
+#endif
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -31,12 +40,6 @@
 #include <inttypes.h>
 #ifdef HAVE_BYTESWAP_H
 #include <byteswap.h>
-#endif
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
 #endif
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof((array)[0]))

@@ -41,7 +41,8 @@ check_compat()
 		;;
 	MINGW*)
 		COMPAT_LIBS="$COMPAT_LIBS -lws2_32 -Wl,--enable-stdcall-fixup -Wl,--export-all-symbols"
-		FLAC_LIBS="$FLAC_LIBS -lws2_32"
+		CFLAGS="$CFLAGS -mthreads"
+		LDFLAGS="$LDFLAGS -mthreads"
 		STANDALONE_PLUGINS=y
 		makefile_vars STANDALONE_PLUGINS
 	esac
@@ -79,6 +80,11 @@ int main(int argc, char *argv[])
 check_rtsched()
 {
 	msg_checking "for realtime scheduling"
+	case `uname -s` in
+	MINGW*)
+		msg_result no
+		return 0
+	esac
 	if try_compile_link "$rtsched_code" $PTHREAD_CFLAGS $PTHREAD_LIBS
 	then
 		msg_result yes

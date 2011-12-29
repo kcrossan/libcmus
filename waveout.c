@@ -27,6 +27,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#ifdef lseek
+#undef lseek
+#endif
 #include <mmsystem.h>
 #include <stdio.h>
 

@@ -43,7 +43,7 @@ ifeq (y,$(STANDALONE_PLUGINS))
 	libcmus-y := file.o path.o prog.o xmalloc.o debug.o keyval.o comment.o uchar.o buffer.o gbuf.o bridge.o convert.o locking.o read_wrapper.o id3.o ape.o misc.o xstrjoin.o
 endif
 
-cmus$(LIB_EXT): $(cmus-y)
+libcmus$(LIB_EXT): $(cmus-y)
 	$(call cmd,ld_dl,$(CMUS_LIBS))
 
 # }}}
@@ -200,12 +200,12 @@ data		= $(wildcard data/*)
 clean		+= *.o *.lo *$(LIB_EXT) cmus.def cmus.base cmus.exp cmus-remote Doc/*.o Doc/ttman Doc/*.1 Doc/*.7
 distclean	+= .version config.mk config/*.h tags
 
-main: cmus$(LIB_EXT)
+main: libcmus$(LIB_EXT)
 plugins: $(ip-y) $(op-y)
 man: $(man1) $(man7)
 
 install-main: main
-	$(INSTALL) -m755 $(bindir) cmus$(LIB_EXT)
+	$(INSTALL) -m755 $(bindir) libcmus$(LIB_EXT)
 
 install-plugins: plugins
 	$(INSTALL) -m755 $(libdir)/cmus/ip $(ip-y)
@@ -217,13 +217,13 @@ install-data: man
 	$(INSTALL) -m644 $(mandir)/man7 $(man7)
 	$(INSTALL) -m755 $(exampledir) cmus-status-display
 
-install: all install-main install-plugins install-data
+install: all install-main install-plugins #install-data #disabled for now
 
 tags:
 	exuberant-ctags *.[ch]
 
 # generating tarball using GIT {{{
-TARNAME	= cmus-$(VERSION)
+TARNAME	= libcmus-$(VERSION)
 
 dist:
 	@tarname=$(TARNAME);						\
@@ -231,6 +231,12 @@ dist:
 	echo "   DIST   $$tarname.tar.bz2";				\
 	git archive --format=tar --prefix=$$tarname/ $(REV)^{tree} | bzip2 -c -9 > $$tarname.tar.bz2
 
+# }}}
+
+# generate Python bindings {{{
+python:
+	ctypesgen.py -l libcmus track_info.h player.h input.h output.h debug.h buffer.h -o cmus.py
+	sed -i -e 's/player_info = struct_player_info/#player_info = struct_player_info/' cmus.py
 # }}}
 
 .PHONY: all main plugins man dist tags

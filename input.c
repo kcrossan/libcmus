@@ -33,6 +33,20 @@
 #include "config/libdir.h"
 #include "config/plugin.h"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <winsock2.h>
+#ifdef lseek
+#undef lseek
+#endif
+#define dlsym GetProcAddress
+#define dlclose FreeLibrary
+#else
+#include <dlfcn.h>
+#endif
+
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -46,16 +60,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#include <winsock2.h>
-#define dlsym GetProcAddress
-#define dlclose FreeLibrary
-#else
-#include <dlfcn.h>
-#endif
 #include <strings.h>
 
 struct input_plugin {
