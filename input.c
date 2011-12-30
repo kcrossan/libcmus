@@ -37,10 +37,6 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#include <winsock2.h>
-#ifdef lseek
-#undef lseek
-#endif
 #define dlsym GetProcAddress
 #define dlclose FreeLibrary
 #else
@@ -616,7 +612,9 @@ int ip_close(struct input_plugin *ip)
 int ip_read(struct input_plugin *ip, char *buffer, int count)
 {
 	struct timeval tv;
+#ifndef _WIN32
 	fd_set readfds;
+#endif
 	/* 4608 seems to be optimal for mp3s, 4096 for oggs */
 	char tmp[8 * 1024];
 	char *buf;
@@ -625,6 +623,7 @@ int ip_read(struct input_plugin *ip, char *buffer, int count)
 
 	BUG_ON(count <= 0);
 
+#ifndef _WIN32
 	FD_ZERO(&readfds);
 	FD_SET(ip->data.fd, &readfds);
 	/* zero timeout -> return immediately */
@@ -640,6 +639,7 @@ int ip_read(struct input_plugin *ip, char *buffer, int count)
 		errno = EAGAIN;
 		return -1;
 	}
+#endif
 
 	buf = buffer;
 	if (ip->pcm_convert_scale > 1) {

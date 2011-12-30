@@ -40,10 +40,6 @@
 #include <string.h>
 #include <errno.h>
 
-#ifdef lseek
-#undef lseek
-#endif
-
 /* the number of samples of silence the decoder inserts at start */
 #define DECODERDELAY 529
 

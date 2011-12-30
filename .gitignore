@@ -4,6 +4,8 @@
 *.[ao]
 *.lo
 *.so
+*.dll
+*.exe
 tags
 !.gitignore
 
@@ -11,11 +13,3 @@ tags
 /*.spec
 /config
 /config.mk
-/cmus
-/cmus-remote
-
-# Cygwin stuff
-*.exe
-/cmus.base
-/cmus.def
-/cmus.exp

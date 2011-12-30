@@ -57,9 +57,6 @@ static int close_func(void *datasource)
 	return close(ip_data->fd);
 }
 
-#ifdef lseek
-#undef lseek
-#endif
 static struct nomad_callbacks callbacks = {
 	.read = read_func,
 	.lseek = lseek_func,

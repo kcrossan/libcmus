@@ -39,9 +39,6 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#ifdef lseek
-#undef lseek
-#endif
 #define dlsym GetProcAddress
 #define dlclose FreeLibrary
 #else

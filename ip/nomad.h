@@ -26,6 +26,9 @@
 #ifndef __GNUC__
 #include <unistd.h>
 #endif
+#ifdef _WIN32
+#include <unistd.h>
+#endif
 
 #define INPUT_BUFFER_SIZE	(5 * 8192)
 
