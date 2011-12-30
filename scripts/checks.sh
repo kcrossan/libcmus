@@ -158,6 +158,9 @@ cc_cxx_common()
 		common_cf="$common_cf -D__EXTENSIONS__ -I/usr/local/include"
 		common_lf="$common_lf -R/usr/local/lib -L/usr/local/lib"
 		;;
+	MINGW*)
+		SOFLAGS=""
+		;;
 	esac
 	makefile_vars SOFLAGS LDSOFLAGS LDDLFLAGS
 }

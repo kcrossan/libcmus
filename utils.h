@@ -122,7 +122,7 @@ static inline void ms_sleep(int ms)
 	struct timespec req;
 
 	req.tv_sec = 0;
-	req.tv_nsec = ms * 1e6 * 1e3;
+	req.tv_nsec = ms * 1e6;
 	nanosleep(&req, NULL);
 #endif
 }

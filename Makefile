@@ -36,11 +36,10 @@ cmus-y := \
 	gbuf.o file.o prog.o convert.o xstrjoin.o id3.o \
 	read_wrapper.o ape.o bridge.o
 
-$(cmus-y): CFLAGS += $(PTHREAD_CFLAGS) $(ICONV_CFLAGS) $(DL_CFLAGS)
+$(cmus-y): CFLAGS += $(PTHREAD_CFLAGS) $(ICONV_CFLAGS) $(DL_CFLAGS) $(SOFLAGS)
 
 ifeq (y,$(STANDALONE_PLUGINS))
 	PLUGIN_LIBS = $(PTHREAD_LIBS) $(ICONV_LIBS)
-	libcmus-y := file.o path.o prog.o xmalloc.o debug.o keyval.o comment.o uchar.o buffer.o gbuf.o bridge.o convert.o locking.o read_wrapper.o id3.o ape.o misc.o xstrjoin.o
 endif
 
 libcmus$(LIB_EXT): $(cmus-y)
@@ -84,37 +83,37 @@ $(mp4-objs):		CFLAGS += $(MP4_CFLAGS)
 $(aac-objs):		CFLAGS += $(AAC_CFLAGS)
 $(ffmpeg-objs):		CFLAGS += $(FFMPEG_CFLAGS)
 
-flac$(LIB_EXT): $(flac-objs) $(libcmus-y)
+flac$(LIB_EXT): $(flac-objs)
 	$(call cmd,ld_dl,$(FLAC_LIBS) $(PLUGIN_LIBS))
 
-mad$(LIB_EXT): $(mad-objs) $(libcmus-y)
+mad$(LIB_EXT): $(mad-objs)
 	$(call cmd,ld_dl,$(MAD_LIBS) $(PLUGIN_LIBS))
 
-mikmod$(LIB_EXT): $(mikmod-objs) $(libcmus-y)
+mikmod$(LIB_EXT): $(mikmod-objs)
 	$(call cmd,ld_dl,$(MIKMOD_LIBS) $(PLUGIN_LIBS))
 
-modplug$(LIB_EXT): $(modplug-objs) $(libcmus-y)
+modplug$(LIB_EXT): $(modplug-objs)
 	$(call cmd,ld_dl,$(MODPLUG_LIBS) $(PLUGIN_LIBS))
 
-mpc$(LIB_EXT): $(mpc-objs) $(libcmus-y)
+mpc$(LIB_EXT): $(mpc-objs)
 	$(call cmd,ld_dl,$(MPC_LIBS) $(PLUGIN_LIBS))
 
-vorbis$(LIB_EXT): $(vorbis-objs) $(libcmus-y)
+vorbis$(LIB_EXT): $(vorbis-objs)
 	$(call cmd,ld_dl,$(VORBIS_LIBS) $(PLUGIN_LIBS))
 
-wavpack$(LIB_EXT): $(wavpack-objs) $(libcmus-y)
+wavpack$(LIB_EXT): $(wavpack-objs)
 	$(call cmd,ld_dl,$(WAVPACK_LIBS) $(PLUGIN_LIBS))
 
-wav$(LIB_EXT): $(wav-objs) $(libcmus-y)
+wav$(LIB_EXT): $(wav-objs)
 	$(call cmd,ld_dl,$(PLUGIN_LIBS))
 
-mp4$(LIB_EXT): $(mp4-objs) $(libcmus-y)
+mp4$(LIB_EXT): $(mp4-objs)
 	$(call cmd,ld_dl,$(MP4_LIBS) $(PLUGIN_LIBS))
 
-aac$(LIB_EXT): $(aac-objs) $(libcmus-y)
+aac$(LIB_EXT): $(aac-objs)
 	$(call cmd,ld_dl,$(AAC_LIBS) $(PLUGIN_LIBS))
 
-ffmpeg$(LIB_EXT): $(ffmpeg-objs) $(libcmus-y)
+ffmpeg$(LIB_EXT): $(ffmpeg-objs)
 	$(call cmd,ld_dl,$(FFMPEG_LIBS) $(PLUGIN_LIBS))
 
 # }}}
@@ -147,28 +146,28 @@ $(ao-objs):   CFLAGS	+= $(AO_CFLAGS)
 $(waveout-objs): CFLAGS += $(WAVEOUT_CFLAGS)
 $(roar-objs): CFLAGS	+= $(ROAR_CFLAGS)
 
-pulse$(LIB_EXT): $(pulse-objs) $(libcmus-y)
+pulse$(LIB_EXT): $(pulse-objs)
 	$(call cmd,ld_dl,$(PULSE_LIBS) $(PLUGIN_LIBS))
 
-alsa$(LIB_EXT): $(alsa-objs) $(libcmus-y)
+alsa$(LIB_EXT): $(alsa-objs)
 	$(call cmd,ld_dl,$(ALSA_LIBS) $(PLUGIN_LIBS))
 
-arts$(LIB_EXT): $(arts-objs) $(libcmus-y)
+arts$(LIB_EXT): $(arts-objs)
 	$(call cmd,ld_dl,$(ARTS_LIBS) $(PLUGIN_LIBS))
 
-oss$(LIB_EXT): $(oss-objs) $(libcmus-y)
+oss$(LIB_EXT): $(oss-objs)
 	$(call cmd,ld_dl,$(OSS_LIBS) $(PLUGIN_LIBS))
 
-sun$(LIB_EXT): $(sun-objs) $(libcmus-y)
+sun$(LIB_EXT): $(sun-objs)
 	$(call cmd,ld_dl,$(SUN_LIBS) $(PLUGIN_LIBS))
 
-ao$(LIB_EXT): $(ao-objs) $(libcmus-y)
+ao$(LIB_EXT): $(ao-objs)
 	$(call cmd,ld_dl,$(AO_LIBS) $(PLUGIN_LIBS))
 
-waveout$(LIB_EXT): $(waveout-objs) $(libcmus-y)
+waveout$(LIB_EXT): $(waveout-objs)
 	$(call cmd,ld_dl,$(WAVEOUT_LIBS) $(PLUGIN_LIBS))
 
-roar$(LIB_EXT): $(roar-objs) $(libcmus-y)
+roar$(LIB_EXT): $(roar-objs)
 	$(call cmd,ld_dl,$(ROAR_LIBS) $(PLUGIN_LIBS))
 # }}}
 
@@ -205,7 +204,7 @@ plugins: $(ip-y) $(op-y)
 man: $(man1) $(man7)
 
 install-main: main
-	$(INSTALL) -m755 $(bindir) libcmus$(LIB_EXT)
+	$(INSTALL) -m755 $(libdir) libcmus$(LIB_EXT)
 
 install-plugins: plugins
 	$(INSTALL) -m755 $(libdir)/cmus/ip $(ip-y)

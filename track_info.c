@@ -31,15 +31,26 @@
 
 static void track_info_free(struct track_info *ti)
 {
-	keyvals_free(ti->comments);
-	free(ti->filename);
-	free(ti->codec);
-	free(ti->collkey_artist);
-	free(ti->collkey_album);
-	free(ti->collkey_title);
-	free(ti->collkey_genre);
-	free(ti->collkey_comment);
-	free(ti->collkey_albumartist);
+	if(!ti)
+		return;
+	if(ti->comments)
+		keyvals_free(ti->comments);
+	if(ti->filename)
+		free(ti->filename);
+	if(ti->codec)
+		free(ti->codec);
+	if(ti->collkey_artist)
+		free(ti->collkey_artist);
+	if(ti->collkey_album)
+		free(ti->collkey_album);
+	if(ti->collkey_title)
+		free(ti->collkey_title);
+	if(ti->collkey_genre)
+		free(ti->collkey_genre);
+	if(ti->collkey_comment)
+		free(ti->collkey_comment);
+	if(ti->collkey_albumartist)
+		free(ti->collkey_albumartist);
 	free(ti);
 }
 
@@ -51,6 +62,12 @@ struct track_info *track_info_new(const char *filename)
 	ti->ref = 1;
 	ti->comments = NULL;
 	ti->codec = NULL;
+	ti->collkey_artist = NULL;
+	ti->collkey_album = NULL;
+	ti->collkey_title = NULL;
+	ti->collkey_genre = NULL;
+	ti->collkey_comment = NULL;
+	ti->collkey_albumartist = NULL;
 	return ti;
 }
 
