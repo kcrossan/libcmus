@@ -420,6 +420,7 @@ static int open_file(struct input_plugin *ip)
 	const struct input_plugin_ops *ops;
 	struct list_head *head = &ip_head;
 	const char *ext;
+	int oflags = O_RDONLY;
 	int rc = 0;
 
 	ext = get_extension(ip->data.filename);
@@ -430,7 +431,11 @@ static int open_file(struct input_plugin *ip)
 	if (!ops)
 		return -IP_ERROR_UNRECOGNIZED_FILE_TYPE;
 
-	ip->data.fd = open(ip->data.filename, O_RDONLY);
+#ifdef _WIN32
+	oflags |= O_BINARY;
+#endif
+	ip->data.fd = open(ip->data.filename, oflags);
+
 	if (ip->data.fd == -1)
 		return -IP_ERROR_ERRNO;
 
